@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<!--
+MIT License
+
+Copyright (c) River Tae Smith <river@r-tae.dev>
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<html>
+
+    <main>
+        <div id="messages"></div>
+        <input id="picker" type="file" accept=".org"/>
+        <table id="stats"></table>
+    </main>
+</html>
+<style>
+    /* TODO: style everything */
+    html {
+        background-color: #0f2d37;
+    }
+    input {
+        height: 10em;
+        width: 8em;
+        text-align: center;
+    }
+</style>
+<script>
+    // TODO: CSV download of stats
+
+    const inputEl = document.querySelector("#picker");
+    const statsEl = document.querySelector("#stats");
+    const messagesEl = document.querySelector("#messages");
+    inputEl.addEventListener("change", updateStats);
+
+    function showMessage(message, type) {
+        messagesEl.textContent = message;
+        messagesEl.style.color = type === "error" ? "red" : "green";
+    }
+
+    function updateStats() {
+        statsEl.innerHtml = inputEl.value;
+        if (inputEl.files.length > 1) {
+            showMessage("Multiple files found. Please only select one (1) file.", "error");
+            return;
+        }
+        const file = inputEl.files[0];
+        console.log(file);
+        if (!file) {
+            showMessage("No file selected. Please select a file.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            showStats(analyzeLog(parseLog(reader.result)));
+        }
+        reader.onerror = () => {
+            showMessage("Error reading the file. Please try again.", "error");
+        }
+        reader.readAsText(file);
+    }
+    function parseLog(logContent) {
+        // TODO: remove START (and END) lines
+        const stats = {};
+        const lines = logContent.split("\n");
+        for (const line of lines) {
+            if (line.match(/START|END/) || line == "") {
+                continue;
+            }
+            const [_pre, strokes_saved, _sep1, translation, _sep2, suggestions, _arrow, strokes, _post] = line.split(ansiRegex())
+            stats[strokes] = (stats[strokes] || []).concat([{
+                strokes_saved: strokes_saved.trim().length,
+                translation: translation.trim(),
+                suggestions: suggestions.split(/, ?/),
+            }]);
+        }
+        return stats;
+    }
+
+    function analyzeLog(stats) {
+        return Object.entries(stats).map(([stroke, instances]) => {
+            let suggestions = instances.map(i => i.suggestions)
+            console.log(suggestions)
+            // deduplicate
+            return [stroke, [...new Set(suggestions.flat())].join(', '), instances.length * instances.reduce((acc, {strokes_saved: x}) => acc+x, 0)]
+        })
+    }
+
+    function showStats(stats) {
+        stats = stats.sort((a, b) => a[2] - b[2]);
+        for (let [stroke, suggestion, severity] of stats) {
+            let row = document.createElement("tr");
+
+            let strokeEl = document.createElement("td");
+            strokeEl.textContent = stroke;
+            strokeEl.style = `font-family:monospace,monospace;color:#93bd8e`;
+            let suggestionEl = document.createElement("td");
+            suggestionEl.textContent = suggestion;
+            suggestionEl.style = `font-family:monospace,monospace;color:#ce8cac`;
+
+            row.appendChild(strokeEl)
+            row.appendChild(suggestionEl)
+
+            statsEl.appendChild(row);
+        }
+        // statsEl.textContent = `worst stroke: ${Object.entries(stats)[0][0]}`
+    }
+
+    /*
+    This function obtained from https://github.com/chalk/ansi-regex/
+
+    Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+    */
+    function ansiRegex({onlyFirst = false} = {}) {
+        // Valid string terminator sequences are BEL, ESC\, and 0x9c
+        const ST = '(?:\\u0007|\\u001B\\u005C|\\u009C)';
+        const pattern = [
+            `[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?${ST})`,
+            '(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))',
+        ].join('|');
+
+        return new RegExp(pattern, onlyFirst ? undefined : 'g');
+    }
+
+</script>
