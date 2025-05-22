@@ -2,58 +2,142 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clippy Stats</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>.org File Sorter</title>
   <style>
     body {
-      background-color: #0f2d37;
-      color: white;
-      font-family: sans-serif;
-      padding: 1em;
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-    input[type="file"] {
-      display: block;
-      width: 80%;
-      margin: 1em auto;
-      padding: 2em;
+    #drop-zone {
+      border: 2px dashed #999;
+      padding: 40px;
       text-align: center;
-      border: 3px dotted #77dce9;
-      background: #1b3d47;
+      color: #666;
       cursor: pointer;
     }
-    input.dragOver {
-      border-color: #d2eefb;
+    #drop-zone.hover {
+      background-color: #f0f0f0;
     }
     table {
       width: 100%;
-      margin-top: 1em;
       border-collapse: collapse;
+      margin-top: 20px;
     }
     th, td {
-      padding: 0.5em;
-      border: 1px solid #333;
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
     }
     th {
-      background: #13343d;
+      background-color: #eee;
     }
-    .btn {
-      background: #77dce9;
-      color: black;
-      border: none;
-      padding: 0.5em 1em;
-      margin: 1em 0;
-      cursor: pointer;
-    }
-    #messages {
-      margin-bottom: 1em;
-      font-weight: bold;
+    #export-btn {
+      margin-top: 20px;
+      padding: 10px 15px;
     }
   </style>
 </head>
 <body>
-  <div id="messages">Drop or select a .org file</div>
-  <input id="picker" type="file" accept=".org" />
-  <button class="btn" onclick="downloadCSV()">Download CSV</button>
-  <table id="stats">
+  <h1>.org File Sorter</h1>
+  <div id="drop-zone">Drag & Drop .org file here or click to upload</div>
+  <input type="file" id="file-input" accept=".org" style="display: none" />
+  <button id="export-btn" disabled>Export CSV</button>
+  <table id="results" style="display: none">
     <thead>
-      <tr>
-        <th>Translation</th>
+      <tr><th>Translation</th><th>Suggestions</th><th>Severity</th><th>Count</th><th>Score</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const table = document.getElementById('results');
+    const tbody = table.querySelector('tbody');
+    const exportBtn = document.getElementById('export-btn');
+    let dataEntries = [];
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('hover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('hover');
+      handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        processFile(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+
+    function stripAnsi(str) {
+      return str.replace(/\x1B\[[0-9;]*[mK]/g, '');
+    }
+
+    function processFile(content) {
+      const lines = content.split('\n').map(l => stripAnsi(l.trim()));
+      const entryMap = new Map();
+
+      for (const line of lines) {
+        if (line.startsWith('START') || line.startsWith('END') || !line.startsWith('*')) continue;
+        const match = line.match(/^(\*+)\s+(.*?)\s{2,}(.+?)\s*<.+$/);
+        if (!match) continue;
+
+        const [, stars, translation, suggestion] = match;
+        const severity = stars.length;
+
+        if (!entryMap.has(translation)) {
+          entryMap.set(translation, { count: 0, severity, suggestions: new Set() });
+        }
+        const entry = entryMap.get(translation);
+        entry.count++;
+        entry.suggestions.add(suggestion);
+      }
+
+      dataEntries = Array.from(entryMap.entries()).map(([translation, { severity, count, suggestions }]) => ({
+        translation,
+        suggestions: Array.from(suggestions).join('; '),
+        severity,
+        count,
+        score: severity * count
+      })).sort((a, b) => b.score - a.score);
+
+      displayResults();
+    }
+
+    function displayResults() {
+      tbody.innerHTML = '';
+      dataEntries.forEach(({ translation, suggestions, severity, count, score }) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${translation}</td><td>${suggestions}</td><td>${severity}</td><td>${count}</td><td>${score}</td>`;
+        tbody.appendChild(row);
+      });
+      table.style.display = 'table';
+      exportBtn.disabled = false;
+    }
+
+    exportBtn.addEventListener('click', () => {
+      const csv = ['Translation,Suggestions,Severity,Count,Score'];
+      dataEntries.forEach(e => {
+        csv.push(`"${e.translation}","${e.suggestions}",${e.severity},${e.count},${e.score}`);
+      });
+      const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sorted_translations.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
