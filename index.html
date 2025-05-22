@@ -1,206 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Clippy Stats</title>
-    <style>
-        html {
-            background-color: #0f2d37;
-            color: white;
-            font-family: sans-serif;
-        }
-        main {
-            padding: 1em;
-        }
-        input[type="file"] {
-            height: 10em;
-            width: 80vw;
-            text-align: center;
-            border: dotted 5px #77dce9;
-            display: block;
-            margin-bottom: 1em;
-        }
-        input.dragOver {
-            border-color: #d2eefb;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1em;
-        }
-        th, td {
-            border: 1px solid #ffffff33;
-            padding: 0.5em;
-        }
-        th {
-            text-align: left;
-            background-color: #13343d;
-        }
-        .btn {
-            background-color: #77dce9;
-            border: none;
-            padding: 0.5em 1em;
-            margin-top: 1em;
-            cursor: pointer;
-            color: #000;
-        }
-        .btn:hover {
-            background-color: #5bc8d8;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Clippy Stats</title>
+  <style>
+    body {
+      background-color: #0f2d37;
+      color: white;
+      font-family: sans-serif;
+      padding: 1em;
+    }
+    input[type="file"] {
+      display: block;
+      width: 80%;
+      margin: 1em auto;
+      padding: 2em;
+      text-align: center;
+      border: 3px dotted #77dce9;
+      background: #1b3d47;
+      cursor: pointer;
+    }
+    input.dragOver {
+      border-color: #d2eefb;
+    }
+    table {
+      width: 100%;
+      margin-top: 1em;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 0.5em;
+      border: 1px solid #333;
+    }
+    th {
+      background: #13343d;
+    }
+    .btn {
+      background: #77dce9;
+      color: black;
+      border: none;
+      padding: 0.5em 1em;
+      margin: 1em 0;
+      cursor: pointer;
+    }
+    #messages {
+      margin-bottom: 1em;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-    <main>
-        <div id="messages"></div>
-        <input id="picker" type="file" accept=".org">
-        <button class="btn" onclick="downloadCSV()">Download CSV</button>
-        <table id="stats">
-            <thead>
-                <tr>
-                    <th>Translation</th>
-                    <th>Suggestions</th>
-                    <th>Count</th>
-                    <th>Strokes Saved</th>
-                    <th>Severity</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <small>* grouped by translation and sorted by severity (count × strokes saved)</small>
-    </main>
-
-    <script>
-        const inputEl = document.getElementById("picker");
-        const statsTable = document.querySelector("#stats tbody");
-        const messagesEl = document.getElementById("messages");
-        let currentStats = [];
-
-        inputEl.addEventListener("change", handleFile);
-
-        inputEl.addEventListener("dragenter", e => {
-            e.preventDefault();
-            inputEl.classList.add("dragOver");
-        });
-
-        inputEl.addEventListener("dragleave", e => {
-            e.preventDefault();
-            inputEl.classList.remove("dragOver");
-        });
-
-        inputEl.addEventListener("dragover", e => {
-            e.preventDefault();
-        });
-
-        inputEl.addEventListener("drop", e => {
-            e.preventDefault();
-            inputEl.classList.remove("dragOver");
-            inputEl.files = e.dataTransfer.files;
-            handleFile();
-        });
-
-        function handleFile() {
-            const file = inputEl.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = () => {
-                const log = reader.result;
-                const parsed = parseLog(log);
-                const analyzed = analyzeLog(parsed);
-                currentStats = analyzed;
-                renderStats(analyzed);
-                showMessage(`Loaded ${analyzed.length} entries.`, "success");
-            };
-            reader.onerror = () => {
-                showMessage("Error reading file.", "error");
-            };
-            reader.readAsText(file);
-        }
-
-        function showMessage(msg, type) {
-            messagesEl.textContent = msg;
-            messagesEl.style.color = type === "error" ? "red" : "lightgreen";
-        }
-
-        function parseLog(logContent) {
-            const lines = logContent.split("\n");
-            const stats = {};
-            for (const line of lines) {
-                if (!line.trim()) continue;
-
-                const match = line.match(/^(\*+)\s+(.*?)\s{2,}(.*?)\s+<\s+(.*)$/);
-                if (!match) continue;
-
-                const [_, stars, translation, suggestionsRaw, stroke] = match;
-                const strokesSaved = stars.length;
-                const suggestions = suggestionsRaw.split(/, ?/).map(s => s.trim());
-
-                if (!stats[translation]) stats[translation] = [];
-
-                stats[translation].push({
-                    translation,
-                    suggestions,
-                    stroke,
-                    strokesSaved
-                });
-            }
-            return stats;
-        }
-
-        function analyzeLog(stats) {
-            return Object.entries(stats).map(([translation, entries]) => {
-                const suggestions = [...new Set(entries.flatMap(e => e.suggestions))].join(', ');
-                const strokesSaved = entries[0].strokesSaved;
-                const count = entries.length;
-                return {
-                    translation,
-                    suggestions,
-                    count,
-                    strokesSaved,
-                    severity: count * strokesSaved
-                };
-            }).sort((a, b) => b.severity - a.severity);
-        }
-
-        function renderStats(stats) {
-            statsTable.innerHTML = "";
-            for (const entry of stats) {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${entry.translation}</td>
-                    <td>${entry.suggestions}</td>
-                    <td>${entry.count}</td>
-                    <td>${entry.strokesSaved}</td>
-                    <td>${entry.severity}</td>
-                `;
-                statsTable.appendChild(row);
-            }
-        }
-
-        function downloadCSV() {
-            if (!currentStats.length) return alert("No data to export.");
-
-            const rows = [
-                ["Translation", "Suggestions", "Count", "Strokes Saved", "Severity"],
-                ...currentStats.map(r => [
-                    r.translation,
-                    `"${r.suggestions}"`,
-                    r.count,
-                    r.strokesSaved,
-                    r.severity
-                ])
-            ];
-
-            const csv = rows.map(row => row.join(",")).join("\n");
-            const blob = new Blob([csv], { type: "text/csv" });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "clippy_stats.csv";
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    </script>
-</body>
-</html>
+  <div id="messages">Drop or select a .org file</div>
+  <input id="picker" type="file" accept=".org" />
+  <button class="btn" onclick="downloadCSV()">Download CSV</button>
+  <table id="stats">
+    <thead>
+      <tr>
+        <th>Translation</th>
