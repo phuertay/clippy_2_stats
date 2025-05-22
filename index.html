@@ -103,6 +103,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
   
    function parseLog(logContent) {
     const stats = {};
+    const stats_2 = {};
     const lines = logContent.split("\n");
     for (const line of lines) {
         // Skip START/END or empty
@@ -129,12 +130,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
                 translation: translation.trim(),
             }]);
     }
-    return stats;
+    return stats_2;
 }
 
 
     function analyzeLog(stats) {
-        return Object.entries(stats).map(([stroke, instances]) => {
+        return Object.entries(stats_2).map(([translation, instances]) => {
             let suggestions = instances.map(i => i.suggestions);
             // flatten and deduplicate
             suggestions = [...new Set(suggestions.flat())].join(', ');
@@ -152,7 +153,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     function showStats(stats) {
         document.querySelectorAll("tr:has(td)").forEach(el => el.remove())
         stats = stats.sort((a, b) => b.severity - a.severity);
-        for (let {stroke, suggestions, count, severity, strokesSaved} of stats) {
+        for (let {translation, stroke, suggestions, count, severity, strokesSaved} of stats) {
             let row = document.createElement("tr");
 
             let translationEl = document.createElement("td");
