@@ -5,12 +5,18 @@
       html {
         background-color: #0f2d37;
         color: white;
+        font-family: sans-serif;
       }
       input {
         height: 10em;
         width: 80vw;
         text-align: center;
         border: dotted 5px #77dce9;
+        display: block;
+        margin: 1em auto;
+        background-color: #1e3d47;
+        color: white;
+        padding: 1em;
       }
       .dragOver {
         border: dotted 5px #d2eefb;
@@ -18,16 +24,40 @@
       th {
         text-align: left;
       }
+      table {
+        margin: auto;
+        margin-top: 2em;
+        border-collapse: collapse;
+        width: 80vw;
+      }
+      td, th {
+        padding: 0.5em;
+        border-bottom: 1px solid #555;
+      }
+      #messages {
+        text-align: center;
+        margin-top: 1em;
+      }
+      #export {
+        display: block;
+        margin: 1em auto;
+        padding: 0.5em 1em;
+        font-size: 1em;
+        cursor: pointer;
+        background-color: #2d5c69;
+        border: none;
+        color: white;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body>
     <main>
-      <div id="messages"></div>
-      <input id="picker" type="file" accept=".org"
-             ondrop="dropHandler(event)"
-             ondragenter="dragEnterHandler(event)"
-             ondragleave="dragLeaveHandler(event)"/>
-      <table id="stats" width="400">
+      <div id="messages">Drop a `.org` file or click to select.</div>
+      <input id="picker" type="file" accept=".org"/>
+      <button id="export" style="display:none;">Download CSV</button>
+
+      <table id="stats">
         <thead>
           <tr>
             <th>strokes</th>
@@ -40,64 +70,63 @@
           <tr><td colspan="4" align="center">Please select a file.</td></tr>
         </tbody>
       </table>
-      <small>* grouped by strokes and sorted by "severity", which is [count] * [strokes the suggestion saves]</small>
+
+      <small style="display:block; text-align:center; margin-top:1em;">* grouped by strokes and sorted by "severity" = count × strokes saved</small>
     </main>
 
     <script>
       const inputEl = document.querySelector("#picker");
       const messagesEl = document.querySelector("#messages");
       const statsBody = document.querySelector("#stats-body");
+      const exportBtn = document.querySelector("#export");
 
-      inputEl.addEventListener("change", updateStats);
+      let currentStats = [];
 
-      function dropHandler(ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        inputEl.classList.remove("dragOver");
-      }
+      // Drag and drop support
+      document.addEventListener("dragover", (e) => e.preventDefault());
+      document.addEventListener("drop", handleDrop);
 
-      function dragEnterHandler(e) {
-        inputEl.classList.add("dragOver");
+      inputEl.addEventListener("change", handleFile);
+      exportBtn.addEventListener("click", downloadCSV);
+
+      function handleDrop(e) {
         e.preventDefault();
-        e.stopPropagation();
-      }
-
-      function dragLeaveHandler(e) {
-        inputEl.classList.remove("dragOver");
-        e.preventDefault();
-        e.stopPropagation();
-      }
-
-      function showMessage(message, type) {
-        messagesEl.textContent = message;
-        messagesEl.style.color = type === "error" ? "red" : "green";
-      }
-
-      function updateStats() {
-        if (inputEl.files.length > 1) {
-          showMessage("Multiple files found. Please only select one (1) file.", "error");
-          return;
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith(".org")) {
+          inputEl.files = e.dataTransfer.files;
+          handleFile();
+        } else {
+          showMessage("Please drop a valid .org file.", "error");
         }
+      }
+
+      function showMessage(message, type = "info") {
+        messagesEl.textContent = message;
+        messagesEl.style.color = type === "error" ? "red" : "lightgreen";
+      }
+
+      function handleFile() {
         const file = inputEl.files[0];
         if (!file) {
-          showMessage("No file selected. Please select a file.");
+          showMessage("No file selected.", "error");
           return;
         }
-
         const reader = new FileReader();
         reader.onload = () => {
           try {
             const parsed = parseLog(reader.result);
             const analyzed = analyzeLog(parsed);
+            currentStats = analyzed;
             showStats(analyzed);
-            showMessage("File loaded successfully.", "success");
+            showMessage("File loaded successfully.");
+            exportBtn.style.display = "inline-block";
           } catch (e) {
             console.error(e);
             showMessage("Error parsing file content.", "error");
           }
         };
         reader.onerror = () => {
-          showMessage("Error reading the file. Please try again.", "error");
+          showMessage("Error reading the file.", "error");
         };
         reader.readAsText(file);
       }
@@ -107,7 +136,6 @@
         const lines = logContent.split("\n");
         for (const line of lines) {
           if (line.includes("START") || line.includes("END") || line.trim() === "") continue;
-
           const cleaned = line.replace(ansiRegex(), "").trim();
           const match = cleaned.match(/(.+?)\s+(.+?)\s+<\s+(.+)/);
           if (!match) continue;
@@ -139,28 +167,43 @@
       }
 
       function showStats(stats) {
-        statsBody.innerHTML = ""; // Clear previous
+        statsBody.innerHTML = "";
         stats = stats.sort((a, b) => b.severity - a.severity);
-
+        if (stats.length === 0) {
+          statsBody.innerHTML = `<tr><td colspan="4" align="center">No data parsed.</td></tr>`;
+          return;
+        }
         for (let {stroke, suggestions, count, strokesSaved} of stats) {
           const row = document.createElement("tr");
-
           row.innerHTML = `
             <td style="font-family:monospace;color:#ce8cac">${stroke}</td>
             <td style="font-family:monospace;color:#93bd8e">${suggestions}</td>
             <td style="font-family:monospace;color:#e5823a">${count}</td>
             <td style="font-family:monospace;color:#e5823a">${strokesSaved}</td>
           `;
-
           statsBody.appendChild(row);
-        }
-
-        if (stats.length === 0) {
-          statsBody.innerHTML = `<tr><td colspan="4" align="center">No data parsed.</td></tr>`;
         }
       }
 
-      // ANSI regex from chalk
+      function downloadCSV() {
+        const csv = [
+          ["stroke", "suggestions", "count", "strokesSaved"],
+          ...currentStats.map(row =>
+            [row.stroke, `"${row.suggestions}"`, row.count, row.strokesSaved]
+          )
+        ].map(r => r.join(",")).join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "stroke_suggestions.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
       function ansiRegex({onlyFirst = false} = {}) {
         const ST = '(?:\\u0007|\\u001B\\u005C|\\u009C)';
         const pattern = [
