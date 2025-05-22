@@ -139,6 +139,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
             // flatten and deduplicate
             suggestions = [...new Set(suggestions.flat())].join(', ');
             return {
+                translation,
                 stroke,
                 suggestions,
                 count: instances.length,
@@ -154,6 +155,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         for (let {stroke, suggestions, count, severity, strokesSaved} of stats) {
             let row = document.createElement("tr");
 
+            let translationEl = document.createElement("td");
+            translationEl.textContent = translation;
+            translationEl.style = `font-family:monospace,monospace;color:#ce8cac`;
             let strokeEl = document.createElement("td");
             strokeEl.textContent = stroke;
             strokeEl.style = `font-family:monospace,monospace;color:#ce8cac`;
