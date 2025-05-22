@@ -1,174 +1,194 @@
 <!DOCTYPE html>
+<!--
+MIT License
+
+Copyright (c) River Tae Smith <river@r-tae.dev>
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
 <html>
-  <head>
-    <style>
-      html {
+    <main>
+        <div id="messages"></div>
+        <input id="picker" type="file" accept=".org" ondrop="dropHandler(event)" ondragenter="dragEnterHandler(event)" ondragleave="dragLeaveHandler(event)"/>
+        <table id="stats" width="400">
+            <tr>    
+                <th>strokes</th>
+                <th>suggestions</th>
+                <th>count</th>
+                <th>saved</th>
+            </tr>
+            <tr class="placeholder-row"><td colspan="3">&nbsp;</td></tr>
+            <tr class="placeholder-row"><td colspan="3" align="center">Please select a file.</td></tr>
+            <tr class="placeholder-row"><td colspan="3">&nbsp;</td></tr>
+        </table>
+        <small>* grouped by strokes and sorted by "severity", which is [count] * [strokes the suggestion saves]</small>
+    </main>
+</html>
+<style>
+    /* TODO: style everything */
+    html {
         background-color: #0f2d37;
         color: white;
-      }
-      input {
+    }
+    input {
         height: 10em;
         width: 80vw;
         text-align: center;
         border: dotted 5px #77dce9;
-      }
-      .dragOver {
+    }
+    .dragOver {
         border: dotted 5px #d2eefb;
-      }
-      th {
+    }
+    th {
         text-align: left;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div id="messages"></div>
-      <input id="picker" type="file" accept=".org"
-             ondrop="dropHandler(event)"
-             ondragenter="dragEnterHandler(event)"
-             ondragleave="dragLeaveHandler(event)"/>
-      <table id="stats" width="400">
-        <thead>
-          <tr>
-            <th>strokes</th>
-            <th>suggestions</th>
-            <th>count</th>
-            <th>saved</th>
-          </tr>
-        </thead>
-        <tbody id="stats-body">
-          <tr><td colspan="4" align="center">Please select a file.</td></tr>
-        </tbody>
-      </table>
-      <small>* grouped by strokes and sorted by "severity", which is [count] * [strokes the suggestion saves]</small>
-    </main>
+    }
+</style>
+<script>
+    // TODO: CSV download of stats
 
-    <script>
-      const inputEl = document.querySelector("#picker");
-      const messagesEl = document.querySelector("#messages");
-      const statsBody = document.querySelector("#stats-body");
+    const inputEl = document.querySelector("#picker");
+    const statsEl = document.querySelector("#stats");
+    const messagesEl = document.querySelector("#messages");
+    inputEl.addEventListener("change", updateStats);
 
-      inputEl.addEventListener("change", updateStats);
-
-      function dropHandler(ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        inputEl.classList.remove("dragOver");
-      }
-
-      function dragEnterHandler(e) {
-        inputEl.classList.add("dragOver");
+    function dropHandler(ev) {
+        const el = document.querySelector("input")
+        el.classList.remove("dragOver")
+    }
+    function dragEnterHandler(e) {
+        const el = document.querySelector("input")
+        el.classList.add("dragOver")
         e.preventDefault();
         e.stopPropagation();
-      }
-
-      function dragLeaveHandler(e) {
-        inputEl.classList.remove("dragOver");
+    }
+    function dragLeaveHandler(e) {
+        const el = document.querySelector("input")
+        el.classList.remove("dragOver")
         e.preventDefault();
         e.stopPropagation();
-      }
-
-      function showMessage(message, type) {
+    }
+    
+    function showMessage(message, type) {
         messagesEl.textContent = message;
         messagesEl.style.color = type === "error" ? "red" : "green";
-      }
+    }
 
-      function updateStats() {
+    function updateStats() {
         if (inputEl.files.length > 1) {
-          showMessage("Multiple files found. Please only select one (1) file.", "error");
-          return;
+            showMessage("Multiple files found. Please only select one (1) file.", "error");
+            return;
         }
         const file = inputEl.files[0];
+        console.log(file);
         if (!file) {
-          showMessage("No file selected. Please select a file.");
-          return;
+            showMessage("No file selected. Please select a file.");
+            return;
         }
 
         const reader = new FileReader();
         reader.onload = () => {
-          try {
-            const parsed = parseLog(reader.result);
-            const analyzed = analyzeLog(parsed);
-            showStats(analyzed);
-            showMessage("File loaded successfully.", "success");
-          } catch (e) {
-            console.error(e);
-            showMessage("Error parsing file content.", "error");
-          }
-        };
+            showStats(analyzeLog(parseLog(reader.result)));
+        }
         reader.onerror = () => {
-          showMessage("Error reading the file. Please try again.", "error");
-        };
+            showMessage("Error reading the file. Please try again.", "error");
+        }
         reader.readAsText(file);
-      }
+    }
+  
+   function parseLog(logContent) {
+    const stats = {};
+    const lines = logContent.split("\n");
+    for (const line of lines) {
+        // Skip START/END or empty
+        if (line.includes("START") || line.includes("END") || line.trim() === "") {
+            continue;
+        }
 
-      function parseLog(logContent) {
-        const stats = {};
-        const lines = logContent.split("\n");
-        for (const line of lines) {
-          if (line.includes("START") || line.includes("END") || line.trim() === "") continue;
+        // Strip ANSI codes
+        const cleaned = line.replace(ansiRegex(), "").trim();
 
-          const cleaned = line.replace(ansiRegex(), "").trim();
-          const match = cleaned.match(/(.+?)\s+(.+?)\s+<\s+(.+)/);
-          if (!match) continue;
+        // Match this structure: text suggestions < strokes
+        const match = cleaned.match(/(.+?)\s+(.+?)\s+<\s+(.+)/);
+        if (!match) continue;
 
-          const [_, translation, suggestionsStr, strokes] = match;
-          const suggestions = suggestionsStr.split(/, ?/);
-          const strokesSaved = suggestions.length;
+        const [_, translation, suggestionsStr, strokes] = match;
 
-          stats[strokes] = (stats[strokes] || []).concat([{
+        const suggestions = suggestionsStr.split(/, ?/);
+        const strokesSaved = suggestions.length; // Rough metric, or derive from data if possible
+
+        stats[strokes] = (stats[strokes] || []).concat([{
             strokesSaved,
             translation: translation.trim(),
             suggestions,
-          }]);
-        }
-        return stats;
-      }
+        }]);
+    }
+    return stats;
+}
 
-      function analyzeLog(stats) {
+
+    function analyzeLog(stats) {
         return Object.entries(stats).map(([stroke, instances]) => {
-          let suggestions = [...new Set(instances.flatMap(i => i.suggestions))].join(', ');
-          return {
-            stroke,
-            suggestions,
-            count: instances.length,
-            strokesSaved: instances[0].strokesSaved,
-            severity: instances.reduce((acc, i) => acc + i.strokesSaved, 0),
-          };
-        });
-      }
+            let suggestions = instances.map(i => i.suggestions);
+            // flatten and deduplicate
+            suggestions = [...new Set(suggestions.flat())].join(', ');
+            return {
+                stroke,
+                suggestions,
+                count: instances.length,
+                strokesSaved: instances[0].strokesSaved,
+                severity: instances.reduce((acc, {strokesSaved: x}) => acc+x, 0)
+            }
+        })
+    }
 
-      function showStats(stats) {
-        statsBody.innerHTML = ""; // Clear previous
+    function showStats(stats) {
+        document.querySelectorAll("tr:has(td)").forEach(el => el.remove())
         stats = stats.sort((a, b) => b.severity - a.severity);
+        for (let {stroke, suggestions, count, severity, strokesSaved} of stats) {
+            let row = document.createElement("tr");
 
-        for (let {stroke, suggestions, count, strokesSaved} of stats) {
-          const row = document.createElement("tr");
+            let strokeEl = document.createElement("td");
+            strokeEl.textContent = stroke;
+            strokeEl.style = `font-family:monospace,monospace;color:#ce8cac`;
+            let suggestionEl = document.createElement("td");
+            suggestionEl.textContent = suggestions;
+            suggestionEl.style = `font-family:monospace,monospace;color:#93bd8e`;
+            let countEl = document.createElement("td");
+            countEl.textContent = count;
+            countEl.style = `font-family:monospace,monospace;color:#e5823a`;
+            let savedEl = document.createElement("td");
+            savedEl.textContent = strokesSaved;
+            savedEl.style = `font-family:monospace,monospace;color:#e5823a`;
 
-          row.innerHTML = `
-            <td style="font-family:monospace;color:#ce8cac">${stroke}</td>
-            <td style="font-family:monospace;color:#93bd8e">${suggestions}</td>
-            <td style="font-family:monospace;color:#e5823a">${count}</td>
-            <td style="font-family:monospace;color:#e5823a">${strokesSaved}</td>
-          `;
+            row.appendChild(strokeEl)
+            row.appendChild(suggestionEl)
+            row.appendChild(countEl)
+            row.appendChild(savedEl)
 
-          statsBody.appendChild(row);
+            statsEl.appendChild(row);
         }
+        // statsEl.textContent = `worst stroke: ${Object.entries(stats)[0][0]}`
+    }
 
-        if (stats.length === 0) {
-          statsBody.innerHTML = `<tr><td colspan="4" align="center">No data parsed.</td></tr>`;
-        }
-      }
+    /*
+    This function obtained from https://github.com/chalk/ansi-regex/
 
-      // ANSI regex from chalk
-      function ansiRegex({onlyFirst = false} = {}) {
+    Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+    */
+    function ansiRegex({onlyFirst = false} = {}) {
+        // Valid string terminator sequences are BEL, ESC\, and 0x9c
         const ST = '(?:\\u0007|\\u001B\\u005C|\\u009C)';
         const pattern = [
-          `[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?${ST})`,
-          '(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))',
+            `[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?${ST})`,
+            '(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))',
         ].join('|');
+
         return new RegExp(pattern, onlyFirst ? undefined : 'g');
-      }
-    </script>
-  </body>
-</html>
+    }
+
+</script>
