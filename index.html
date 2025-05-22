@@ -123,6 +123,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
                 translation: translation.trim(),
                 suggestions: suggestions.split(/, ?/),
             }]);
+            stats_2[translation] = (stats_2[translation] || []).concat([{
+                strokesSaved: strokesSaved.trim().length,
+                suggestions: suggestions.split(/, ?/),
+                translation: translation.trim(),
+            }]);
     }
     return stats;
 }
