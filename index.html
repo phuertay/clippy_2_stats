@@ -106,7 +106,7 @@
       dataEntries = Array.from(entryMap.entries()).map(([translation, { severity, count, suggestions }]) => ({
         translation,
         suggestions: Array.from(suggestions).join('; '),
-        severity,
+        severity: '*'.repeat(severity),
         count,
         score: severity * count
       })).sort((a, b) => b.score - a.score);
@@ -128,7 +128,7 @@
     exportBtn.addEventListener('click', () => {
       const csv = ['Translation,Suggestions,Severity,Count,Score'];
       dataEntries.forEach(e => {
-        csv.push(`"${e.translation}","${e.suggestions}",${e.severity},${e.count},${e.score}`);
+        csv.push(`"${e.translation}","${e.suggestions}","${e.severity}",${e.count},${e.score}`);
       });
       const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
