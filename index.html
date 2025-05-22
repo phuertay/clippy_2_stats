@@ -2,6 +2,7 @@
 <!--
 MIT License
 
+Copyright (c) Pedro Huerta
 Copyright (c) River Tae Smith <river@r-tae.dev>
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
@@ -116,16 +117,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         const match = cleaned.match(/(.+?)\s+(.+?)\s+<\s+(.+)/);
         if (!match) continue;
 
-        const [_, translation, suggestionsStr, strokes] = match;
-
-        const suggestions = suggestionsStr.split(/, ?/);
-        const strokesSaved = suggestions.length; // Rough metric, or derive from data if possible
-
-        stats[strokes] = (stats[strokes] || []).concat([{
-            strokesSaved,
-            translation: translation.trim(),
-            suggestions,
-        }]);
+        const [_pre, strokesSaved, _sep1, translation, _sep2, suggestions, _arrow, strokes, _post] = line.split(ansiRegex())
+            stats[strokes] = (stats[strokes] || []).concat([{
+                strokesSaved: strokesSaved.trim().length,
+                translation: translation.trim(),
+                suggestions: suggestions.split(/, ?/),
+            }]);
     }
     return stats;
 }
