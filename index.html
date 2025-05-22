@@ -1,205 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Translation Stats</title>
-  <style>
-    html {
-      background-color: #0f2d37;
-      color: white;
-      font-family: sans-serif;
-    }
-    body {
-      padding: 2em;
-    }
-    input[type="file"] {
-      height: 10em;
-      width: 100%;
-      text-align: center;
-      border: dotted 5px #77dce9;
-      display: block;
-      margin-bottom: 2em;
-      background-color: #14343f;
-      color: white;
-    }
-    input.dragOver {
-      border-color: #d2eefb;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1em;
-    }
-    th, td {
-      padding: 0.5em;
-      text-align: left;
-      border-bottom: 1px solid #33575e;
-    }
-    th {
-      background-color: #17414c;
-    }
-    #messages {
-      margin-bottom: 1em;
-      font-weight: bold;
-    }
-    button {
-      padding: 0.5em 1em;
-      background: #77dce9;
-      border: none;
-      color: black;
-      font-weight: bold;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-    button:hover {
-      background: #a5e6f1;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Clippy Stats</title>
+    <style>
+        html {
+            background-color: #0f2d37;
+            color: white;
+            font-family: sans-serif;
+        }
+        main {
+            padding: 1em;
+        }
+        input[type="file"] {
+            height: 10em;
+            width: 80vw;
+            text-align: center;
+            border: dotted 5px #77dce9;
+            display: block;
+            margin-bottom: 1em;
+        }
+        input.dragOver {
+            border-color: #d2eefb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            border: 1px solid #ffffff33;
+            padding: 0.5em;
+        }
+        th {
+            text-align: left;
+            background-color: #13343d;
+        }
+        .btn {
+            background-color: #77dce9;
+            border: none;
+            padding: 0.5em 1em;
+            margin-top: 1em;
+            cursor: pointer;
+            color: #000;
+        }
+        .btn:hover {
+            background-color: #5bc8d8;
+        }
+    </style>
 </head>
 <body>
+    <main>
+        <div id="messages"></div>
+        <input id="picker" type="file" accept=".org">
+        <button class="btn" onclick="downloadCSV()">Download CSV</button>
+        <table id="stats">
+            <thead>
+                <tr>
+                    <th>Translation</th>
+                    <th>Suggestions</th>
+                    <th>Count</th>
+                    <th>Strokes Saved</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <small>* grouped by translation and sorted by severity (count × strokes saved)</small>
+    </main>
 
-  <div id="messages"></div>
-  <input id="picker" type="file" accept=".org" />
-  <button onclick="downloadCSV()">Download CSV</button>
+    <script>
+        const inputEl = document.getElementById("picker");
+        const statsTable = document.querySelector("#stats tbody");
+        const messagesEl = document.getElementById("messages");
+        let currentStats = [];
 
-  <table id="stats">
-    <thead>
-      <tr>
-        <th>translation</th>
-        <th>suggestions</th>
-        <th>count</th>
-        <th>saved</th>
-      </tr>
-    </thead>
-    <tbody id="stats-body">
-      <tr><td colspan="4" align="center">Please select a file.</td></tr>
-    </tbody>
-  </table>
+        inputEl.addEventListener("change", handleFile);
 
-  <script>
-    const inputEl = document.getElementById("picker");
-    const messagesEl = document.getElementById("messages");
-    const statsBody = document.getElementById("stats-body");
-    let currentStats = [];
+        inputEl.addEventListener("dragenter", e => {
+            e.preventDefault();
+            inputEl.classList.add("dragOver");
+        });
 
-    inputEl.addEventListener("change", updateStats);
-    inputEl.addEventListener("dragover", e => { e.preventDefault(); inputEl.classList.add("dragOver"); });
-    inputEl.addEventListener("dragleave", e => { inputEl.classList.remove("dragOver"); });
-    inputEl.addEventListener("drop", e => {
-      e.preventDefault();
-      inputEl.classList.remove("dragOver");
-      if (e.dataTransfer.files.length > 0) {
-        inputEl.files = e.dataTransfer.files;
-        updateStats();
-      }
-    });
+        inputEl.addEventListener("dragleave", e => {
+            e.preventDefault();
+            inputEl.classList.remove("dragOver");
+        });
 
-    function showMessage(msg, type = "info") {
-      messagesEl.textContent = msg;
-      messagesEl.style.color = type === "error" ? "red" : "lightgreen";
-    }
+        inputEl.addEventListener("dragover", e => {
+            e.preventDefault();
+        });
 
-    function updateStats() {
-      if (inputEl.files.length === 0) {
-        showMessage("No file selected", "error");
-        return;
-      }
-      const file = inputEl.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        const stats = analyzeLog(parseLog(reader.result));
-        currentStats = stats;
-        showStats(stats);
-        showMessage("Stats loaded successfully", "info");
-      };
-      reader.onerror = () => showMessage("Failed to read file", "error");
-      reader.readAsText(file);
-    }
+        inputEl.addEventListener("drop", e => {
+            e.preventDefault();
+            inputEl.classList.remove("dragOver");
+            inputEl.files = e.dataTransfer.files;
+            handleFile();
+        });
 
-    function parseLog(logContent) {
-      const stats = {};
-      const lines = logContent.split("\n");
-      for (const line of lines) {
-        if (line.includes("START") || line.includes("END") || line.trim() === "") continue;
-        const cleaned = line.replace(ansiRegex(), "").trim();
-        const match = cleaned.match(/(.+?)\s+(.+?)\s+<\s+(.+)/);
-        if (!match) continue;
+        function handleFile() {
+            const file = inputEl.files[0];
+            if (!file) return;
 
-        const [_, translation, suggestionsStr, strokes] = match;
-        const suggestions = suggestionsStr.split(/, ?/);
-        const strokesSaved = suggestions.length;
-        const key = translation.trim();
-        stats[key] = (stats[key] || []).concat([{
-          strokesSaved,
-          suggestions,
-          strokes,
-        }]);
-      }
-      return stats;
-    }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const log = reader.result;
+                const parsed = parseLog(log);
+                const analyzed = analyzeLog(parsed);
+                currentStats = analyzed;
+                renderStats(analyzed);
+                showMessage(`Loaded ${analyzed.length} entries.`, "success");
+            };
+            reader.onerror = () => {
+                showMessage("Error reading file.", "error");
+            };
+            reader.readAsText(file);
+        }
 
-    function analyzeLog(stats) {
-      return Object.entries(stats).map(([translation, instances]) => {
-        const suggestions = [...new Set(instances.flatMap(i => i.suggestions))].join(', ');
-        return {
-          translation,
-          suggestions,
-          count: instances.length,
-          strokesSaved: instances[0].strokesSaved,
-          severity: instances.reduce((acc, i) => acc + i.strokesSaved, 0),
-        };
-      });
-    }
+        function showMessage(msg, type) {
+            messagesEl.textContent = msg;
+            messagesEl.style.color = type === "error" ? "red" : "lightgreen";
+        }
 
-    function showStats(stats) {
-      statsBody.innerHTML = "";
-      stats = stats.sort((a, b) => b.severity - a.severity);
-      if (stats.length === 0) {
-        statsBody.innerHTML = `<tr><td colspan="4" align="center">No data parsed.</td></tr>`;
-        return;
-      }
-      for (let {translation, suggestions, count, strokesSaved} of stats) {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td style="font-family:monospace;color:#ce8cac">${translation}</td>
-          <td style="font-family:monospace;color:#93bd8e">${suggestions}</td>
-          <td style="font-family:monospace;color:#e5823a">${count}</td>
-          <td style="font-family:monospace;color:#e5823a">${strokesSaved}</td>
-        `;
-        statsBody.appendChild(row);
-      }
-    }
+        function parseLog(logContent) {
+            const lines = logContent.split("\n");
+            const stats = {};
+            for (const line of lines) {
+                if (!line.trim()) continue;
 
-    function downloadCSV() {
-      if (currentStats.length === 0) return;
-      const csv = [
-        ["translation", "suggestions", "count", "strokesSaved"],
-        ...currentStats.map(row =>
-          [`"${row.translation}"`, `"${row.suggestions}"`, row.count, row.strokesSaved]
-        )
-      ].map(r => r.join(",")).join("\n");
+                const match = line.match(/^(\*+)\s+(.*?)\s{2,}(.*?)\s+<\s+(.*)$/);
+                if (!match) continue;
 
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "translation_stats.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+                const [_, stars, translation, suggestionsRaw, stroke] = match;
+                const strokesSaved = stars.length;
+                const suggestions = suggestionsRaw.split(/, ?/).map(s => s.trim());
 
-    // From ansi-regex package
-    function ansiRegex({ onlyFirst = false } = {}) {
-      const pattern = [
-        '[\\u001B\\u009B][[\\]()#;?]*(?:' +
-        '(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]' +
-        '|(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007' +
-        '|(?:.*?\\u001B\\\\))'
-      ].join('|');
-      return new RegExp(pattern, onlyFirst ? undefined : 'g');
-    }
-  </script>
+                if (!stats[translation]) stats[translation] = [];
 
+                stats[translation].push({
+                    translation,
+                    suggestions,
+                    stroke,
+                    strokesSaved
+                });
+            }
+            return stats;
+        }
+
+        function analyzeLog(stats) {
+            return Object.entries(stats).map(([translation, entries]) => {
+                const suggestions = [...new Set(entries.flatMap(e => e.suggestions))].join(', ');
+                const strokesSaved = entries[0].strokesSaved;
+                const count = entries.length;
+                return {
+                    translation,
+                    suggestions,
+                    count,
+                    strokesSaved,
+                    severity: count * strokesSaved
+                };
+            }).sort((a, b) => b.severity - a.severity);
+        }
+
+        function renderStats(stats) {
+            statsTable.innerHTML = "";
+            for (const entry of stats) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${entry.translation}</td>
+                    <td>${entry.suggestions}</td>
+                    <td>${entry.count}</td>
+                    <td>${entry.strokesSaved}</td>
+                    <td>${entry.severity}</td>
+                `;
+                statsTable.appendChild(row);
+            }
+        }
+
+        function downloadCSV() {
+            if (!currentStats.length) return alert("No data to export.");
+
+            const rows = [
+                ["Translation", "Suggestions", "Count", "Strokes Saved", "Severity"],
+                ...currentStats.map(r => [
+                    r.translation,
+                    `"${r.suggestions}"`,
+                    r.count,
+                    r.strokesSaved,
+                    r.severity
+                ])
+            ];
+
+            const csv = rows.map(row => row.join(",")).join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "clippy_stats.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
