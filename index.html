@@ -12,22 +12,40 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -->
 <html>
-
     <main>
         <div id="messages"></div>
-        <input id="picker" type="file" accept=".org"/>
-        <table id="stats"></table>
+        <input id="picker" type="file" accept=".org" ondrop="dropHandler(event)" ondragenter="dragEnterHandler(event)" ondragleave="dragLeaveHandler(event)"/>
+        <table id="stats" width="400">
+            <tr>    
+                <th>strokes</th>
+                <th>suggestions</th>
+                <th>count</th>
+                <th>saved</th>
+            </tr>
+            <tr class="placeholder-row"><td colspan="3">&nbsp;</td></tr>
+            <tr class="placeholder-row"><td colspan="3" align="center">Please select a file.</td></tr>
+            <tr class="placeholder-row"><td colspan="3">&nbsp;</td></tr>
+        </table>
+        <small>* grouped by strokes and sorted by "severity", which is [count] * [strokes the suggestion saves]</small>
     </main>
 </html>
 <style>
     /* TODO: style everything */
     html {
         background-color: #0f2d37;
+        color: white;
     }
     input {
         height: 10em;
-        width: 8em;
+        width: 80vw;
         text-align: center;
+        border: dotted 5px #77dce9;
+    }
+    .dragOver {
+        border: dotted 5px #d2eefb;
+    }
+    th {
+        text-align: left;
     }
 </style>
 <script>
@@ -38,13 +56,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     const messagesEl = document.querySelector("#messages");
     inputEl.addEventListener("change", updateStats);
 
+    function dropHandler(ev) {
+        const el = document.querySelector("input")
+        el.classList.remove("dragOver")
+    }
+    function dragEnterHandler(e) {
+        const el = document.querySelector("input")
+        el.classList.add("dragOver")
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    function dragLeaveHandler(e) {
+        const el = document.querySelector("input")
+        el.classList.remove("dragOver")
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
     function showMessage(message, type) {
         messagesEl.textContent = message;
         messagesEl.style.color = type === "error" ? "red" : "green";
     }
 
     function updateStats() {
-        statsEl.innerHtml = inputEl.value;
         if (inputEl.files.length > 1) {
             showMessage("Multiple files found. Please only select one (1) file.", "error");
             return;
@@ -66,16 +100,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         reader.readAsText(file);
     }
     function parseLog(logContent) {
-        // TODO: remove START (and END) lines
         const stats = {};
         const lines = logContent.split("\n");
         for (const line of lines) {
             if (line.match(/START|END/) || line == "") {
                 continue;
             }
-            const [_pre, strokes_saved, _sep1, translation, _sep2, suggestions, _arrow, strokes, _post] = line.split(ansiRegex())
+            const [_pre, strokesSaved, _sep1, translation, _sep2, suggestions, _arrow, strokes, _post] = line.split(ansiRegex())
             stats[strokes] = (stats[strokes] || []).concat([{
-                strokes_saved: strokes_saved.trim().length,
+                strokesSaved: strokesSaved.trim().length,
                 translation: translation.trim(),
                 suggestions: suggestions.split(/, ?/),
             }]);
@@ -85,27 +118,42 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
     function analyzeLog(stats) {
         return Object.entries(stats).map(([stroke, instances]) => {
-            let suggestions = instances.map(i => i.suggestions)
-            console.log(suggestions)
-            // deduplicate
-            return [stroke, [...new Set(suggestions.flat())].join(', '), instances.length * instances.reduce((acc, {strokes_saved: x}) => acc+x, 0)]
+            let suggestions = instances.map(i => i.suggestions);
+            // flatten and deduplicate
+            suggestions = [...new Set(suggestions.flat())].join(', ');
+            return {
+                stroke,
+                suggestions,
+                count: instances.length,
+                strokesSaved: instances[0].strokesSaved,
+                severity: instances.reduce((acc, {strokesSaved: x}) => acc+x, 0)
+            }
         })
     }
 
     function showStats(stats) {
-        stats = stats.sort((a, b) => a[2] - b[2]);
-        for (let [stroke, suggestion, severity] of stats) {
+        document.querySelectorAll("tr:has(td)").forEach(el => el.remove())
+        stats = stats.sort((a, b) => b.severity - a.severity);
+        for (let {stroke, suggestions, count, severity, strokesSaved} of stats) {
             let row = document.createElement("tr");
 
             let strokeEl = document.createElement("td");
             strokeEl.textContent = stroke;
-            strokeEl.style = `font-family:monospace,monospace;color:#93bd8e`;
+            strokeEl.style = `font-family:monospace,monospace;color:#ce8cac`;
             let suggestionEl = document.createElement("td");
-            suggestionEl.textContent = suggestion;
-            suggestionEl.style = `font-family:monospace,monospace;color:#ce8cac`;
+            suggestionEl.textContent = suggestions;
+            suggestionEl.style = `font-family:monospace,monospace;color:#93bd8e`;
+            let countEl = document.createElement("td");
+            countEl.textContent = count;
+            countEl.style = `font-family:monospace,monospace;color:#e5823a`;
+            let savedEl = document.createElement("td");
+            savedEl.textContent = strokesSaved;
+            savedEl.style = `font-family:monospace,monospace;color:#e5823a`;
 
             row.appendChild(strokeEl)
             row.appendChild(suggestionEl)
+            row.appendChild(countEl)
+            row.appendChild(savedEl)
 
             statsEl.appendChild(row);
         }
