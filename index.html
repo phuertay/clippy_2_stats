@@ -6,9 +6,23 @@ Copyright (c) Pedro Huerta
 Copyright (c) River Tae Smith <river@r-tae.dev>
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 Credits to River Tae Smith <river@r-tae.dev> for coming up with the idea!
 -->
@@ -111,6 +125,12 @@ Credits to River Tae Smith <river@r-tae.dev> for coming up with the idea!
       color: var(--base03);
     }
 
+    .severity-1 { color: var(--cyan); }
+    .severity-2 { color: var(--violet); }
+    .severity-3 { color: var(--blue); }
+    .severity-4 { color: var(--orange); }
+    .severity-5 { color: var(--red); }
+
     #export-btn, #theme-toggle {
       margin-top: 20px;
       padding: 10px 15px;
@@ -197,7 +217,8 @@ Credits to River Tae Smith <river@r-tae.dev> for coming up with the idea!
       dataEntries = Array.from(entryMap.entries()).map(([translation, { severity, count, suggestions }]) => ({
         translation,
         suggestions: Array.from(suggestions).join('; '),
-        severity: '*'.repeat(severity),
+        severityStars: '*'.repeat(severity),
+        severity,
         count,
         score: severity * count
       })).sort((a, b) => b.score - a.score);
@@ -207,9 +228,9 @@ Credits to River Tae Smith <river@r-tae.dev> for coming up with the idea!
 
     function displayResults() {
       tbody.innerHTML = '';
-      dataEntries.forEach(({ translation, suggestions, severity, count, score }) => {
+      dataEntries.forEach(({ translation, suggestions, severityStars, severity, count, score }) => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>${translation}</td><td>${suggestions}</td><td>${severity}</td><td>${count}</td><td>${score}</td>`;
+        row.innerHTML = `<td>${translation}</td><td>${suggestions}</td><td class="severity-${severity}">${severityStars}</td><td>${count}</td><td>${score}</td>`;
         tbody.appendChild(row);
       });
       table.style.display = 'table';
@@ -219,7 +240,7 @@ Credits to River Tae Smith <river@r-tae.dev> for coming up with the idea!
     exportBtn.addEventListener('click', () => {
       const csv = ['Translation,Suggestions,Severity,Count,Score'];
       dataEntries.forEach(e => {
-        csv.push(`"${e.translation}","${e.suggestions}","${e.severity}",${e.count},${e.score}`);
+        csv.push(`"${e.translation}","${e.suggestions}","${e.severityStars}",${e.count},${e.score}`);
       });
       const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
