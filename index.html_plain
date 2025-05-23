@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clippy .org File Sorter</title>
+  <title>Clippy analyzer</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -39,8 +39,8 @@
   </style>
 </head>
 <body>
-  <h1>Clippy .org File Sorter</h1>
-  <div id="drop-zone">Drag & Drop .org file here or click to upload</div>
+  <h1>Clippy analyzer</h1>
+  <div id="drop-zone">Drag and drop a .org file here or click to upload</div>
   <input type="file" id="file-input" accept=".org" style="display: none" />
   <button id="export-btn" disabled>Export CSV</button>
   <table id="results" style="display: none">
