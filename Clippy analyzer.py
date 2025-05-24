@@ -74,34 +74,37 @@ class ClippyAnalyzer:
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
+        main_frame.columnconfigure(2, weight=1)
         main_frame.rowconfigure(2, weight=1)
 
         self.title_label = tk.Label(main_frame, text="Clippy Analyzer", font=("Segoe UI", 28, "bold"))
         self.title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
-        file_frame = ttk.Frame(main_frame)
-        file_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
-        file_frame.columnconfigure(1, weight=1)
+        # --- Align buttons in a single row, spaced out ---
+        button_row = ttk.Frame(main_frame)
+        button_row.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        button_row.columnconfigure(0, weight=0)
+        button_row.columnconfigure(1, weight=1)
+        button_row.columnconfigure(2, weight=0)
+        button_row.columnconfigure(3, weight=0)
 
-        self.select_file_btn = tk.Button(file_frame, text="Select .org File", command=self.select_file)
-        self.select_file_btn["font"]=self.the_font
-        self.select_file_btn.grid(row=0, column=0, padx=(0, 10))
+        self.select_file_btn = tk.Button(button_row, text="Select .org File", command=self.select_file)
+        self.select_file_btn["font"] = self.the_font
+        self.select_file_btn.grid(row=0, column=0, padx=(0, 10), sticky=tk.W)
 
-        self.file_label = tk.Label(file_frame, text="No file selected", anchor="w")
-        self.file_label["font"]=self.the_font
+        self.file_label = tk.Label(button_row, text="No file selected", anchor="w")
+        self.file_label["font"] = self.the_font
         self.file_label.grid(row=0, column=1, sticky=(tk.W, tk.E))
 
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=1, column=2, padx=(20, 0))
+        self.export_btn = tk.Button(button_row, text="Export CSV", command=self.export_csv, state='disabled')
+        self.export_btn["font"] = self.the_font
+        self.export_btn.grid(row=0, column=2, padx=(10, 10), sticky=tk.E)
 
-        self.export_btn = tk.Button(button_frame, text="Export CSV", command=self.export_csv, state='disabled')
-        self.export_btn["font"]=self.the_font
-        self.export_btn.grid(row=0, column=0, padx=(0, 10))
-
-        self.theme_btn = tk.Button(button_frame, text="Toggle Theme", command=self.toggle_theme)
-        self.theme_btn["font"]=self.the_font
-        self.theme_btn.grid(row=0, column=1)
+        self.theme_btn = tk.Button(button_row, text="Toggle Theme", command=self.toggle_theme)
+        self.theme_btn["font"] = self.the_font
+        self.theme_btn.grid(row=0, column=3, padx=(0, 0), sticky=tk.E)
 
         results_frame = ttk.Frame(main_frame)
         results_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(20, 0))
