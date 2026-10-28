@@ -1,0 +1,91 @@
+#+OPTIONS: ^:nil
+* Plover_clippy_2
+** Installation
+*** simple
+- To install this plugin, right click the plover icon. go to tools -> plugins manager, find `plover-clippy-2`, and click "install/update".
+- When it finishes installing, restart Plover, go to configure -> plugins, and check the box next to `plover_clippy_2` to activate the plugin
+** File viewing
+- Now that you have installed this plugin it's time to use it!
+- By default the output is written into clippy_2.org in your config files
+	- The same place as where your user.json and main.json is located
+*** Terminal
+- here are some live commands for different platforms
+**** Windows 
+- press start, type 'powershell' enter, then copy and paste the following:
+#+BEGIN_SRC bash
+Get-Content -path "$($env:LOCALAPPDATA)\plover\plover\clippy_2.org" -Wait -Tail 30
+#+END_SRC
+**** Linux
+#+BEGIN_SRC bash
+tail -f clippy_2.org
+#+END_SRC
+**** WSL
+Note that on WSL, the flag `---disable-inotify` may be required to make `tail` work
+#+BEGIN_SRC bash
+tail -f ---disable-inotify clippy_2.org
+#+END_SRC
+**** Plover-live-view-nvim (neovim only)
+- This [[https://github.com/Josiah-tan/plover-live-view-nvim][plugin]] is a live viewer which supports:
+	- Splits - You can split both horizontally and vertically and customize the sizes of the splits
+	- Terminal viewing (requires [[https://github.com/ThePrimeagen/harpoon][harpoon]])
+**** vim-autoread (vim only [no nvim])
+- This [[https://github.com/chrisbra/vim-autoread][plugin]] is a live viewer for buffer viewing
+**** Extra
+- see [[file:docs.org::*file viewing][file viewing]] for more cool recipes
+** Advanced
+*** Customization
+- In your config directory create a python file:
+	- clippy_2_cfg.py
+- feel free to write all your customization code here!
+**** Initialization
+- Below are some states that can be set by the user
+	- Note that these are the basic defaults (see [[file:docs.org::*Defaults][extended docs]] for more)
+#+BEGIN_SRC python
+def initPost(obj, clippy):
+	clippy.state.output_file_name = "clippy_2.org"
+	clippy.state.efficiency_symbol = "*"
+	clippy.state.max_pad_efficiency = 5
+	clippy.state.max_pad_english = 15
+	clippy.state.justify = "left"
+	clippy.state.last_num_translations = 10
+#+END_SRC
+- output_file_name: name of the output file, directory location will default to config directory
+- efficiency_symbol: any one character symbol used to denote how many strokes can be saved
+- max_pad_efficiency: the maximum number of efficiency symbols that are allowed to be displayed
+- max_pad_english: the maximum amount of space padding for English translations
+- justify: add white space either "left" or "right" to the output 
+- last_num_translations: these number of translations are used to give suggestions
+- note: initPost executes after this plugin initializes itself
+**** Formatting Sources
+- The different formats come from different "sources", choose whenever you want!!!
+	- below is the default, but feel free to comment out whichever you want
+#+BEGIN_SRC python
+def startPost(obj, clippy):
+	clippy.formatting.sources.set(
+		["Org", {"mode": "defaultSuggest"}]
+		# ["Org", {"mode": "debugSuggest"}]
+		# ["Org", {"mode": "minimalSuggest"}]
+
+		# ["Retro", {"mode": "defaultSuggest"}]
+		# ["Retro", {"mode": "minimalSuggest"}]
+		)
+#+END_SRC
+- For more information on customizing formatting sources, see the extended docs
+**** Suggestion sources
+- The suggestions come from different sources, and you can choose which sources to include!!!
+	- Listed below are the defaults
+#+BEGIN_SRC python
+clippy.translations.sources.set("Undo", "FingerSpelling", "Retro", "Tkfps")
+#+END_SRC
+- see [[file:docs.org::*Suggestion Sources][Suggestion Sources]] for a more information on what each source does
+- see [[file:docs.org::*Sources][Sources]] for other methods like "append" and "prepend"
+**** distillation sources
+- TODO
+**** Extremity Sources
+- TODO
+** Multiple configurations
+- In this plugin it is possible to use multiple configurations to do crazy things like:
+	- multifile output, each with different configurations
+	 - for example one file could have syntax highlighting and the other doesn't
+	- become a framework for other text output programs like tapey-tape (maybe in the future)
+- see [[file:docs.org::*Multiple Configurations][extended docs]] for more information
