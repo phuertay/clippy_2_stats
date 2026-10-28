@@ -1,0 +1,7 @@
+build
+dist
+plover_clippy_2.egg-info
+__pycache__
+/plover_clippy_2/debug.txt
+/plover_clippy_2/debug.py
+/it_works.org
